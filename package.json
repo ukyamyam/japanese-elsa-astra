@@ -1,0 +1,26 @@
+{
+  "name": "japanese-elsa-astra",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Astraモデルを指定した日本語発音コーチアプリ",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "test": "vitest run --coverage=false",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "jsdom": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  },
+  "devDependencies": {}
+}
