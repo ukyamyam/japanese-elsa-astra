@@ -1,29 +1,79 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App.jsx';
 
-describe('Japanese Elsa Astra app', () => {
-  it('shows Japanese-first learning copy and Astra model badge', () => {
-    render(<App />);
+let recognition;
 
-    expect(screen.getByRole('heading', { name: /日本語版 elsa/i })).toBeInTheDocument();
-    expect(screen.getByText(/使用モデル: Astra/)).toBeInTheDocument();
-    expect(screen.getByText(/日本語の発音・リズム・長音を練習/)).toBeInTheDocument();
+class FakeSpeechRecognition {
+  constructor() {
+    recognition = this;
+    this.start = vi.fn();
+    this.stop = vi.fn();
+  }
+}
+
+class FakeMediaRecorder {
+  static isTypeSupported = () => true;
+  constructor() {
+    this.start = vi.fn();
+    this.stop = vi.fn(() => this.onstop?.());
+  }
+}
+
+describe('microphone pronunciation coach', () => {
+  beforeEach(() => {
+    vi.stubGlobal('SpeechRecognition', FakeSpeechRecognition);
+    vi.stubGlobal('webkitSpeechRecognition', undefined);
+    vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] }) },
+    });
   });
 
-  it('analyzes typed pronunciation and displays score, feedback, and detailed tips', async () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('contains no model branding or manual pronunciation textbox', () => {
+    render(<App />);
+
+    expect(screen.queryByText(/使用モデル/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '声で、日本語がうまくなる。' })).toBeInTheDocument();
+  });
+
+  it('requests microphone access and starts Japanese speech recognition', async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.selectOptions(screen.getByLabelText('練習フレーズ'), 'りょこう');
-    await user.clear(screen.getByLabelText('あなたの発音（ひらがなで入力）'));
-    await user.type(screen.getByLabelText('あなたの発音（ひらがなで入力）'), 'りよこ');
-    await user.click(screen.getByRole('button', { name: 'Astraで診断する' }));
+    await user.click(screen.getByRole('button', { name: '録音をはじめる' }));
 
-    expect(screen.getByText('スコア 50')).toBeInTheDocument();
-    expect(screen.getByText(/もう少し練習/)).toBeInTheDocument();
-    expect(screen.getByText(/小さい「ょ」/)).toBeInTheDocument();
-    expect(screen.getByText(/語尾の長さ/)).toBeInTheDocument();
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(expect.objectContaining({ audio: expect.any(Object) }));
+    expect(recognition.lang).toBe('ja-JP');
+    expect(recognition.interimResults).toBe(true);
+    expect(recognition.start).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: '録音を止める' })).toBeInTheDocument();
+  });
+
+  it('diagnoses the speech-recognition result as a phoneme alignment', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: '録音をはじめる' }));
+
+    act(() => {
+      recognition.onresult({
+        resultIndex: 0,
+        results: [{ 0: { transcript: 'こんにちわ', confidence: 0.82 }, isFinal: true }],
+      });
+      recognition.onend();
+    });
+
+    expect(await screen.findByText('認識結果')).toBeInTheDocument();
+    expect(screen.getByText('「こんにちわ」')).toBeInTheDocument();
+    expect(screen.getByText('音素チェック')).toBeInTheDocument();
+    expect(screen.getByText(/総合スコア/)).toBeInTheDocument();
   });
 });

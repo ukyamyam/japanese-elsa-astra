@@ -1,8 +1,8 @@
 {
-  "name": "japanese-elsa-astra",
-  "version": "0.1.0",
+  "name": "koe-japanese-pronunciation",
+  "version": "0.2.0",
   "private": false,
-  "description": "Astraモデルを指定した日本語発音コーチアプリ",
+  "description": "マイク音声を日本語の音素列と比較する発音コーチ",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
